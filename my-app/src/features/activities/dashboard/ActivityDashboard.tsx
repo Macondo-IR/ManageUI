@@ -1,56 +1,62 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { Grid, Loader } from 'semantic-ui-react';
+import React from 'react';
+import { Grid } from 'semantic-ui-react';
+import { IActivity } from '../../../app/models/activity';
 import ActivityList from './ActivityList';
-import { observer } from 'mobx-react-lite';
-import LoadingComponent from '../../../app/layout/LoadingComponent';
-import { RootStoreContext } from '../../../app/stores/rootStore';
-import InfiniteScroll from 'react-infinite-scroller';
-import ActivityFilters from './ActivityFilters';
+import ActivityDetails from '../details/ActivityDetails';
+import ActivityForm from '../form/ActivityForm';
 
-const ActivityDashboard: React.FC = () => {
-  const rootStore = useContext(RootStoreContext);
-  const {
-    loadActivities,
-    loadingInitial,
-    setPage,
-    page,
-    totalPages
-  } = rootStore.activityStore;
-  const [loadingNext, setLoadingNext] = useState(false);
+interface IProps {
+  activities: IActivity[];
+  selectActivity: (id: string) => void;
+  selectedActivity: IActivity | null;
+  editMode: boolean;
+  setEditMode: (editMode: boolean) => void;
+  setSelectedActivity: (activity: IActivity | null) => void;
+  createActivity: (activity: IActivity) => void;
+  editActivity: (activity: IActivity) => void;
+  deleteActivity: (id: string) => void;
+}
 
-  const handleGetNext = () => {
-    setLoadingNext(true);
-    setPage(page + 1);
-    loadActivities().then(() => setLoadingNext(false));
-  };
-
-  useEffect(() => {
-    loadActivities();
-  }, [loadActivities]);
-
-  if (loadingInitial && page === 0)
-    return <LoadingComponent content='Loading activities' />;
-
+const ActivityDashboard: React.FC<IProps> = ({
+  activities,
+  selectActivity,
+  selectedActivity,
+  editMode,
+  setEditMode,
+  setSelectedActivity,
+  createActivity,
+  editActivity,
+  deleteActivity
+}) => {
   return (
     <Grid>
       <Grid.Column width={10}>
-        <InfiniteScroll
-          pageStart={0}
-          loadMore={handleGetNext}
-          hasMore={!loadingNext && page + 1 < totalPages}
-          initialLoad={false}
-        >
-          <ActivityList />
-        </InfiniteScroll>
+        <ActivityList
+          activities={activities}
+          selectActivity={selectActivity}
+          deleteActivity={deleteActivity}
+        />
       </Grid.Column>
       <Grid.Column width={6}>
-        <ActivityFilters />
-      </Grid.Column>
-      <Grid.Column width={10}>
-        <Loader active={loadingNext} />
+        {selectedActivity && !editMode && (
+          <ActivityDetails
+            activity={selectedActivity}
+            setEditMode={setEditMode}
+            setSelectedActivity={setSelectedActivity}
+          />
+        )}
+        {editMode && (
+          <ActivityForm
+            key={(selectedActivity && selectedActivity.id) || 0}
+            setEditMode={setEditMode}
+            activity={selectedActivity!}
+            createActivity={createActivity}
+            editActivity={editActivity}
+          />
+        )}
       </Grid.Column>
     </Grid>
   );
 };
 
-export default observer(ActivityDashboard);
+export default ActivityDashboard;

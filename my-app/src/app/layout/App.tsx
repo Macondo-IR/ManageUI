@@ -1,67 +1,74 @@
-import React, { Fragment, useContext, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { Container } from 'semantic-ui-react';
+import axios from 'axios';
+import { IActivity } from '../models/activity';
 import NavBar from '../../features/nav/NavBar';
 import ActivityDashboard from '../../features/activities/dashboard/ActivityDashboard';
-import { observer } from 'mobx-react-lite';
-import {
-  Route,
-  withRouter,
-  RouteComponentProps,
-  Switch
-} from 'react-router-dom';
-import HomePage from '../../features/home/HomePage';
-import ActivityForm from '../../features/activities/form/ActivityForm';
-import ActivityDetails from '../../features/activities/details/ActivityDetails';
-import NotFound from './NotFound';
-import {ToastContainer} from 'react-toastify';
-import { RootStoreContext } from '../stores/rootStore';
-import LoadingComponent from './LoadingComponent';
-import ModalContainer from '../common/modals/ModalContainer';
-import ProfilePage from '../../features/profiles/ProfilePage';
 
-const App: React.FC<RouteComponentProps> = ({ location }) => {
-  const rootStore = useContext(RootStoreContext);
-  const {setAppLoaded, token, appLoaded} = rootStore.commonStore;
-  const {getUser} = rootStore.userStore;
+const App = () => {
+  const [activities, setActivities] = useState<IActivity[]>([]);
+  const [selectedActivity, setSelectedActivity] = useState<IActivity | null>(
+    null
+  );
+  const [editMode, setEditMode] = useState(false);
+
+  const handleOpenCreateForm = () => {
+    setSelectedActivity(null);
+    setEditMode(true);
+  }
+
+  const handleCreateActivity = (activity: IActivity) => {
+    setActivities([...activities, activity]);
+    setSelectedActivity(activity);
+    setEditMode(false);
+  }
+
+  const handleEditActivity = (activity: IActivity) => {
+    setActivities([...activities.filter(a => a.id !== activity.id), activity])
+    setSelectedActivity(activity);
+    setEditMode(false);
+  }
+
+  const handleDeleteActivity = (id: string) => {
+    setActivities([...activities.filter(a => a.id !== id)])
+  }
+
+  const handleSelectActivity = (id: string) => {
+    setSelectedActivity(activities.filter(a => a.id === id)[0]);
+    setEditMode(false);
+  };
 
   useEffect(() => {
-    if (token) {
-      getUser().finally(() => setAppLoaded())
-    } else {
-      setAppLoaded();
-    }
-  }, [getUser, setAppLoaded, token])
-
-  if (!appLoaded)  return <LoadingComponent content='Loading app...' />
+    axios
+      .get<IActivity[]>('http://localhost:5000/api/activities')
+      .then(response => {
+        let activities: IActivity[] = [];
+        response.data.forEach(activity => {
+          activity.date = activity.date.split('.')[0]
+          activities.push(activity);
+        })
+        setActivities(activities);
+      });
+  }, []);
 
   return (
     <Fragment>
-      <ModalContainer />
-      <ToastContainer position='bottom-right' />
-      <Route exact path='/' component={HomePage} />
-      <Route
-        path={'/(.+)'}
-        render={() => (
-          <Fragment>
-            <NavBar />
-            <Container style={{ marginTop: '7em' }}>
-              <Switch>
-                <Route exact path='/activities' component={ActivityDashboard} />
-                <Route path='/activities/:id' component={ActivityDetails} />
-                <Route
-                  key={location.key}
-                  path={['/createActivity', '/manage/:id']}
-                  component={ActivityForm}
-                />
-                <Route path='/profile/:username' component={ProfilePage} />
-                <Route component={NotFound} />
-              </Switch>
-            </Container>
-          </Fragment>
-        )}
-      />
+      <NavBar openCreateForm={handleOpenCreateForm} />
+      <Container style={{ marginTop: '7em' }}>
+        <ActivityDashboard
+          activities={activities}
+          selectActivity={handleSelectActivity}
+          selectedActivity={selectedActivity}
+          editMode={editMode}
+          setEditMode={setEditMode}
+          setSelectedActivity={setSelectedActivity}
+          createActivity={handleCreateActivity}
+          editActivity={handleEditActivity}
+          deleteActivity={handleDeleteActivity}
+        />
+      </Container>
     </Fragment>
   );
 };
 
-export default withRouter(observer(App));
+export default App;
